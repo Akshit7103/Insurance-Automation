@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLA Calculator &mdash; Protiviti</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg:           #07060c;
+            --surface:      #0e0d15;
+            --surface-up:   #15141f;
+            --surface-top:  #1c1b27;
+            --border:       #1e1d2a;
+            --border-light: #2b293a;
+            --gold:         #c8a55a;
+            --gold-light:   #dbb978;
+            --gold-dim:     rgba(200,165,90,0.06);
+            --gold-glow:    rgba(200,165,90,0.18);
+            --emerald:      #34d399;
+            --emerald-dim:  rgba(52,211,153,0.08);
+            --amber:        #f59e0b;
+            --amber-dim:    rgba(245,158,11,0.08);
+            --rose:         #f87171;
+            --rose-dim:     rgba(248,113,113,0.08);
+            --sky:          #7dd3fc;
+            --sky-dim:      rgba(125,211,252,0.08);
+            --text:         #ede9e1;
+            --text-2:       #9e99a8;
+            --text-3:       #6b667a;
+            --serif:        'Instrument Serif', Georgia, serif;
+            --sans:         'Outfit', system-ui, sans-serif;
+            --mono:         'JetBrains Mono', monospace;
+            --radius:       10px;
+            --radius-sm:    6px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ═══ Film Grain ═══ */
+        .grain {
+            position: fixed; inset: 0;
+            pointer-events: none; z-index: 10000;
+            opacity: 0.022;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-size: 256px;
+        }
+
+        /* ═══ Ambient Glow ═══ */
+        body::before {
+            content: ''; position: fixed;
+            top: -25%; right: -5%;
+            width: 700px; height: 700px;
+            background: radial-gradient(circle, rgba(200,165,90,0.045), transparent 65%);
+            pointer-events: none; z-index: -1;
+        }
+        body::after {
+            content: ''; position: fixed;
+            bottom: -20%; left: -8%;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(200,165,90,0.025), transparent 65%);
+            pointer-events: none; z-index: -1;
+        }
+
+        /* ═══ Layout ═══ */
+        .app {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 56px 28px 80px;
+        }
+
+        /* ═══ Header ═══ */
+        .header {
+            text-align: center;
+            margin-bottom: 52px;
+            animation: reveal 0.6s ease-out both;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 14px;
+            border: 1px solid rgba(200,165,90,0.2);
+            border-radius: 2px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-family: var(--serif);
+            font-size: 3.2rem;
+            font-weight: 400;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            line-height: 1.15;
+            margin-bottom: 10px;
+        }
+        .header h1 em {
+            font-style: italic;
+            color: var(--gold);
+        }
+        .header p {
+            font-size: 0.95rem;
+            font-weight: 300;
+            color: var(--text-3);
+            letter-spacing: 0.04em;
+        }
+        .header-rule {
+            width: 40px; height: 1.5px;
+            background: var(--gold);
+            margin: 22px auto 0;
+            opacity: 0.7;
+        }
+
+        /* ═══ Cards ═══ */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            position: relative;
+        }
+
+        /* ═══ Corner Brackets ═══ */
+        .bracket { position: absolute; pointer-events: none; transition: all 0.5s cubic-bezier(0.2,0,0,1); }
+        .bracket.tl { top: -1px; left: -1px; width: 22px; height: 22px; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold); border-top-left-radius: var(--radius); }
+        .bracket.tr { top: -1px; right: -1px; width: 22px; height: 22px; border-top: 2px solid var(--gold); border-right: 2px solid var(--gold); border-top-right-radius: var(--radius); }
+        .bracket.bl { bottom: -1px; left: -1px; width: 22px; height: 22px; border-bottom: 2px solid var(--gold); border-left: 2px solid var(--gold); border-bottom-left-radius: var(--radius); }
+        .bracket.br { bottom: -1px; right: -1px; width: 22px; height: 22px; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); border-bottom-right-radius: var(--radius); }
+        .card:hover .bracket { width: 30px; height: 30px; }
+
+        /* ═══ Upload Section ═══ */
+        #upload-section {
+            animation: reveal 0.6s ease-out 0.1s both;
+        }
+        #upload-section .card { padding: 36px; }
+
+        .dropzone {
+            border: 1.5px dashed var(--border-light);
+            border-radius: var(--radius-sm);
+            padding: 52px 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.35s;
+            position: relative;
+        }
+        .dropzone:hover { border-color: var(--gold); background: var(--gold-dim); }
+        .dropzone.drag-over { border-color: var(--gold-light); background: rgba(200,165,90,0.08); transform: scale(1.004); }
+
+        .drop-icon {
+            width: 52px; height: 52px;
+            margin: 0 auto 18px;
+            border: 1.5px solid var(--border-light);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.35s;
+        }
+        .dropzone:hover .drop-icon { border-color: var(--gold); }
+        .drop-icon svg { width: 22px; height: 22px; stroke: var(--text-3); fill: none; stroke-width: 1.5; transition: stroke 0.3s; }
+        .dropzone:hover .drop-icon svg { stroke: var(--gold); }
+
+        .dropzone h3 {
+            font-family: var(--sans);
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .dropzone .sub {
+            font-size: 0.8rem;
+            color: var(--text-3);
+            font-weight: 300;
+        }
+        .dropzone .sub b {
+            color: var(--gold);
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        /* File info */
+        .file-bar {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 18px;
+            background: var(--surface-up);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-top: 16px;
+        }
+        .file-thumb {
+            width: 40px; height: 40px;
+            border-radius: 4px;
+            background: var(--emerald-dim);
+            border: 1px solid rgba(52,211,153,0.15);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .file-thumb svg { width: 18px; height: 18px; stroke: var(--emerald); fill: none; stroke-width: 1.5; }
+        .file-meta { flex: 1; min-width: 0; }
+        .file-meta-name { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-meta-size { font-size: 0.72rem; color: var(--text-3); font-family: var(--mono); }
+        .file-rm {
+            width: 30px; height: 30px; border-radius: 50%;
+            border: 1px solid rgba(248,113,113,0.15);
+            background: var(--rose-dim); color: var(--rose);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 1rem;
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        .file-rm:hover { background: rgba(248,113,113,0.18); border-color: rgba(248,113,113,0.3); }
+
+        /* Controls row */
+        .controls {
+            display: flex; align-items: center; gap: 16px;
+            margin-top: 22px; padding-top: 22px;
+            border-top: 1px solid var(--border);
+        }
+        .field { display: flex; align-items: center; gap: 10px; }
+        .field label {
+            font-size: 0.78rem; font-weight: 500;
+            color: var(--text-3); white-space: nowrap;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .field input {
+            width: 60px; padding: 7px 10px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 4px; color: var(--text);
+            font-family: var(--mono); font-size: 0.85rem;
+            font-weight: 500; text-align: center;
+            outline: none; transition: all 0.2s;
+        }
+        .field input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
+        .controls .spacer { flex: 1; }
+
+        /* ═══ Buttons ═══ */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 10px 24px; border-radius: 6px;
+            font-family: var(--sans); font-size: 0.82rem; font-weight: 600;
+            border: none; cursor: pointer; transition: all 0.25s;
+            letter-spacing: 0.02em;
+        }
+        .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #b0903a, var(--gold), var(--gold-light));
+            color: #0a0914;
+            box-shadow: 0 2px 12px rgba(200,165,90,0.2);
+        }
+        .btn-gold:hover:not(:disabled) { box-shadow: 0 4px 20px rgba(200,165,90,0.35); transform: translateY(-1px); }
+        .btn-gold:active:not(:disabled) { transform: translateY(0); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-2); border: 1px solid var(--border);
+        }
+        .btn-ghost:hover:not(:disabled) { background: var(--surface-up); color: var(--text); border-color: var(--border-light); }
+
+        .btn-emerald {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(16,185,129,0.25);
+        }
+        .btn-emerald:hover:not(:disabled) { box-shadow: 0 4px 20px rgba(16,185,129,0.4); transform: translateY(-1px); }
+
+        /* ═══ Processing Section ═══ */
+        #processing-section .card { padding: 44px 40px; }
+
+        /* Diamond Steps */
+        .steps {
+            display: flex; align-items: flex-start; justify-content: center;
+            margin-bottom: 36px;
+        }
+        .step {
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            min-width: 68px;
+        }
+        .diamond {
+            width: 16px; height: 16px;
+            transform: rotate(45deg);
+            border: 1.5px solid var(--border-light);
+            background: var(--surface);
+            transition: all 0.45s cubic-bezier(0.2,0,0,1);
+            position: relative;
+        }
+        .diamond-inner {
+            position: absolute; inset: 3px;
+            background: transparent;
+            transition: background 0.4s;
+        }
+        .step-name {
+            font-size: 0.65rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-3); transition: color 0.3s;
+        }
+
+        .step-line {
+            width: 56px; height: 1px;
+            background: var(--border);
+            margin-top: 8px;
+            position: relative; overflow: hidden;
+            transition: background 0.3s;
+        }
+        .step-line::after {
+            content: ''; position: absolute; inset: 0;
+            width: 0%; background: var(--gold);
+            transition: width 0.6s cubic-bezier(0.2,0,0,1);
+        }
+        .step-line.done::after { width: 100%; }
+        .step-line.active::after {
+            width: 100%;
+            background: linear-gradient(90deg, var(--gold), var(--gold-light));
+            animation: line-glow 1.8s ease-in-out infinite;
+        }
+        @keyframes line-glow { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .step.done .diamond { border-color: var(--gold); background: var(--gold); box-shadow: 0 0 14px var(--gold-glow); }
+        .step.done .diamond-inner { background: var(--gold); }
+        .step.done .step-name { color: var(--gold); }
+
+        .step.active .diamond { border-color: var(--gold); animation: diamond-pulse 2.2s ease-in-out infinite; }
+        .step.active .step-name { color: var(--gold-light); }
+        @keyframes diamond-pulse {
+            0%,100% { box-shadow: 0 0 0 0 var(--gold-glow); }
+            50% { box-shadow: 0 0 0 8px transparent; }
+        }
+
+        /* Status */
+        .status-area { text-align: center; margin-bottom: 30px; }
+        .status-text { font-family: var(--serif); font-size: 1.25rem; color: var(--text); }
+        .status-sub { font-size: 0.78rem; color: var(--text-3); margin-top: 3px; }
+
+        /* Progress Bar */
+        .prog-area {
+            max-width: 520px; margin: 0 auto 30px;
+            opacity: 0; transform: translateY(6px);
+            transition: all 0.4s ease-out;
+        }
+        .prog-area.show { opacity: 1; transform: translateY(0); }
+
+        .prog-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+        .prog-label { font-size: 0.75rem; font-weight: 500; color: var(--text-3); letter-spacing: 0.04em; }
+        .prog-pct { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--text); }
+
+        .prog-track {
+            height: 8px; background: var(--surface-up);
+            border-radius: 4px; overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .prog-fill {
+            height: 100%; width: 0%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #a0863a, var(--gold), var(--gold-light));
+            transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: 0 0 16px rgba(200,165,90,0.3);
+        }
+
+        .prog-footer { display: flex; justify-content: space-between; margin-top: 8px; }
+        .prog-rows { font-family: var(--mono); font-size: 0.72rem; color: var(--text-2); }
+        .prog-eta { font-size: 0.72rem; color: var(--text-3); }
+
+        /* Live Stats */
+        .live-stats {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            max-width: 520px; margin: 0 auto;
+            opacity: 0; transform: translateY(6px);
+            transition: all 0.4s 0.08s;
+        }
+        .live-stats.show { opacity: 1; transform: translateY(0); }
+
+        .lstat {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 14px; text-align: center;
+        }
+        .lstat-label {
+            font-size: 0.6rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-3); margin-bottom: 4px;
+        }
+        .lstat-val { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; }
+        .lstat:nth-child(1) .lstat-val { color: var(--emerald); }
+        .lstat:nth-child(2) .lstat-val { color: var(--amber); }
+        .lstat:nth-child(3) .lstat-val { color: var(--gold-light); }
+
+        /* ═══ Results Section ═══ */
+        #results-section { animation: reveal 0.5s ease-out both; }
+
+        .results-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px; flex-wrap: wrap; gap: 10px;
+        }
+        .results-bar h2 {
+            font-family: var(--serif); font-size: 1.6rem; font-weight: 400;
+        }
+        .results-bar h2 em { font-style: italic; color: var(--gold); }
+        .results-file {
+            font-size: 0.72rem; font-family: var(--mono);
+            color: var(--text-3); padding: 4px 12px;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 3px;
+        }
+
+        /* Stats Grid */
+        .stats {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 14px; margin-bottom: 24px;
+        }
+        @media (max-width: 680px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+        .scard {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 22px 18px;
+            border-top: 2px solid var(--border);
+            transition: all 0.25s;
+        }
+        .scard:hover { border-color: var(--border-light); transform: translateY(-2px); }
+        .scard-label {
+            font-size: 0.62rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            color: var(--text-3); margin-bottom: 8px;
+        }
+        .scard-val {
+            font-family: var(--serif); font-size: 1.85rem; font-weight: 400;
+            letter-spacing: -0.02em;
+        }
+        .scard.c-sky    { border-top-color: var(--sky); }
+        .scard.c-sky    .scard-val { color: var(--sky); }
+        .scard.c-green  { border-top-color: var(--emerald); }
+        .scard.c-green  .scard-val { color: var(--emerald); }
+        .scard.c-amber  { border-top-color: var(--amber); }
+        .scard.c-amber  .scard-val { color: var(--amber); }
+        .scard.c-gold   { border-top-color: var(--gold); }
+        .scard.c-gold   .scard-val { color: var(--gold); }
+
+        /* Table Card */
+        .tcard {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .tcard-header {
+            padding: 14px 22px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .tcard-header h3 { font-size: 0.85rem; font-weight: 600; }
+        .tcard-header span { font-size: 0.7rem; color: var(--text-3); font-family: var(--mono); }
+
+        .twrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .twrap::-webkit-scrollbar { height: 5px; }
+        .twrap::-webkit-scrollbar-track { background: var(--bg); }
+        .twrap::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+        thead th {
+            padding: 10px 16px; text-align: left;
+            font-family: var(--sans); font-weight: 600;
+            font-size: 0.62rem; text-transform: uppercase;
+            letter-spacing: 0.08em; color: var(--text-3);
+            background: var(--bg); border-bottom: 1px solid var(--gold);
+            position: sticky; top: 0; z-index: 1;
+        }
+        thead th.out { color: var(--gold); }
+        tbody td {
+            padding: 9px 16px;
+            border-bottom: 1px solid rgba(30,29,42,0.6);
+            color: var(--text-2); font-family: var(--mono); font-size: 0.76rem;
+        }
+        tbody tr { transition: background 0.15s; }
+        tbody tr:hover td { background: var(--surface-up); color: var(--text); }
+        td.out { background: var(--gold-dim); color: var(--text); font-weight: 600; }
+        td.gla-val { color: var(--gold-light); }
+        td.gla-nil { color: var(--text-3); }
+        td.muted { color: var(--text-3); }
+        td.r { text-align: right; }
+
+        .fade-row { animation: fadeRow 0.25s ease-out both; }
+        @keyframes fadeRow { from { opacity: 0; transform: translateX(-6px); } }
+
+        .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+        /* ═══ Reference ═══ */
+        .ref-section { margin-top: 44px; animation: reveal 0.5s ease-out 0.2s both; }
+        .ref-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); overflow: hidden;
+        }
+        .ref-card summary {
+            padding: 16px 22px; font-weight: 500; font-size: 0.82rem;
+            cursor: pointer; list-style: none;
+            display: flex; align-items: center; gap: 10px;
+            color: var(--text-3); transition: color 0.2s;
+        }
+        .ref-card summary:hover { color: var(--text-2); }
+        .ref-card summary::before {
+            content: ''; display: inline-block; width: 5px; height: 5px;
+            border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3);
+            transform: rotate(-45deg); transition: transform 0.2s;
+        }
+        .ref-card[open] summary::before { transform: rotate(45deg); }
+        .ref-card summary::-webkit-details-marker { display: none; }
+        .ref-body { padding: 0 22px 22px; }
+
+        .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+        @media (max-width: 560px) { .map-grid { grid-template-columns: 1fr; } }
+        .map-group h4 {
+            font-size: 0.6rem; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 8px;
+        }
+        .map-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.78rem; color: var(--text-2); }
+        .col-tag {
+            display: inline-block; padding: 1px 8px;
+            font-family: var(--mono); font-size: 0.68rem; font-weight: 600;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 3px; min-width: 32px; text-align: center;
+        }
+        .col-tag.gold { background: var(--gold-dim); border-color: rgba(200,165,90,0.2); color: var(--gold); }
+        .map-arrow { color: var(--text-3); font-size: 0.7rem; }
+
+        .formula {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 16px 20px;
+            font-family: var(--mono); font-size: 0.76rem;
+            line-height: 1.9; color: var(--text-2); overflow-x: auto;
+        }
+        .formula .k { color: var(--gold); }
+        .formula .f { color: var(--gold-light); }
+        .formula .s { color: var(--emerald); }
+        .formula .n { color: var(--amber); }
+        .formula .c { color: var(--text-3); font-style: italic; }
+
+        /* ═══ Toasts ═══ */
+        .toasts {
+            position: fixed; top: 24px; right: 24px; z-index: 99999;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .toast {
+            padding: 12px 18px; border-radius: var(--radius-sm);
+            font-size: 0.8rem; font-weight: 500; max-width: 380px;
+            animation: toastIn 0.3s ease-out;
+            box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+            border-left: 3px solid;
+        }
+        .toast.err { background: #1a0f0f; border-color: var(--rose); color: var(--rose); }
+        .toast.ok  { background: #0a1a14; border-color: var(--emerald); color: var(--emerald); }
+        @keyframes toastIn  { from { opacity: 0; transform: translateX(20px); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateX(20px); } }
+
+        /* ═══ Utilities ═══ */
+        .hidden { display: none !important; }
+
+        @keyframes reveal {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="grain"></div>
+    <div class="toasts" id="toasts"></div>
+
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="badge">Protiviti</div>
+            <h1>GLA <em>Calculator</em></h1>
+            <p>Upload &middot; Compute &middot; Download</p>
+            <div class="header-rule"></div>
+        </header>
+
+        <!-- ═══ Upload ═══ -->
+        <section id="upload-section">
+            <div class="card">
+                <span class="bracket tl"></span>
+                <span class="bracket tr"></span>
+                <span class="bracket bl"></span>
+                <span class="bracket br"></span>
+
+                <div class="dropzone" id="dropzone">
+                    <input type="file" id="file-input" accept=".xlsx,.xls" hidden>
+                    <div class="drop-icon">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </div>
+                    <h3>Drop your Excel file here</h3>
+                    <p class="sub">or <b id="browse-trigger">click to browse</b> &mdash; .xlsx supported</p>
+                </div>
+
+                <div class="file-bar hidden" id="file-bar">
+                    <div class="file-thumb">
+                        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div class="file-meta">
+                        <div class="file-meta-name" id="f-name"></div>
+                        <div class="file-meta-size" id="f-size"></div>
+                    </div>
+                    <button class="file-rm" id="f-rm">&times;</button>
+                </div>
+
+                <div class="controls">
+                    <div class="field">
+                        <label for="hrow">Header Row</label>
+                        <input type="number" id="hrow" value="1" min="1" max="100">
+                    </div>
+                    <div class="spacer"></div>
+                    <button class="btn btn-gold" id="go-btn" disabled>
+                        <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        Process
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ Processing ═══ -->
+        <section id="processing-section" class="hidden">
+            <div class="card">
+                <div class="steps">
+                    <div class="step" id="s-upload"><div class="diamond"><div class="diamond-inner"></div></div><span class="step-name">Upload</span></div>
+                    <div class="step-line" id="sl-1"></div>
+                    <div class="step" id="s-read"><div class="diamond"><div class="diamond-inner"></div></div><span class="step-name">Read</span></div>
+                    <div class="step-line" id="sl-2"></div>
+                    <div class="step" id="s-process"><div class="diamond"><div class="diamond-inner"></div></div><span class="step-name">Process</span></div>
+                    <div class="step-line" id="sl-3"></div>
+                    <div class="step" id="s-done"><div class="diamond"><div class="diamond-inner"></div></div><span class="step-name">Complete</span></div>
+                </div>
+
+                <div class="status-area">
+                    <div class="status-text" id="status-text">Uploading&hellip;</div>
+                    <div class="status-sub" id="status-sub"></div>
+                </div>
+
+                <div class="prog-area" id="prog-area">
+                    <div class="prog-header">
+                        <span class="prog-label" id="prog-label">Processing rows&hellip;</span>
+                        <span class="prog-pct" id="prog-pct">0%</span>
+                    </div>
+                    <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+                    <div class="prog-footer">
+                        <span class="prog-rows" id="prog-rows"></span>
+                        <span class="prog-eta" id="prog-eta"></span>
+                    </div>
+                </div>
+
+                <div class="live-stats" id="live-stats">
+                    <div class="lstat"><div class="lstat-label">Calculated</div><div class="lstat-val" id="lv-calc">0</div></div>
+                    <div class="lstat"><div class="lstat-label">Skipped</div><div class="lstat-val" id="lv-skip">0</div></div>
+                    <div class="lstat"><div class="lstat-label">Running GLA</div><div class="lstat-val" id="lv-gla">0</div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ Results ═══ -->
+        <section id="results-section" class="hidden">
+            <div class="results-bar">
+                <h2>Processing <em>Complete</em></h2>
+                <span class="results-file" id="r-file"></span>
+            </div>
+
+            <div class="stats">
+                <div class="scard c-sky"><div class="scard-label">Total Rows</div><div class="scard-val" id="r-total">-</div></div>
+                <div class="scard c-green"><div class="scard-label">Processed</div><div class="scard-val" id="r-proc">-</div></div>
+                <div class="scard c-amber"><div class="scard-label">Skipped</div><div class="scard-val" id="r-skip">-</div></div>
+                <div class="scard c-gold"><div class="scard-label">Total GLA</div><div class="scard-val" id="r-gla">-</div></div>
+            </div>
+
+            <div class="tcard">
+                <div class="tcard-header">
+                    <h3>Preview</h3>
+                    <span id="r-pcount"></span>
+                </div>
+                <div class="twrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Row</th><th>Status (B)</th><th>CNTTYPE (Y)</th>
+                                <th>Prem Term (AC)</th><th>PREMCESDTE (AH)</th>
+                                <th>Original SA (AS)</th><th>Next Pay (AW)</th>
+                                <th class="out">TAT (AZ)</th><th class="out">GLA (BA)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="r-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-emerald" id="dl-btn">
+                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download Output
+                </button>
+                <button class="btn btn-ghost" id="reset-btn">
+                    <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    Process Another
+                </button>
+            </div>
+        </section>
+
+        <!-- ═══ Reference ═══ -->
+        <div class="ref-section">
+            <details class="ref-card">
+                <summary>Column Mapping & Formula Reference</summary>
+                <div class="ref-body">
+                    <div class="map-grid">
+                        <div class="map-group">
+                            <h4>Input Columns</h4>
+                            <div class="map-item"><span class="col-tag">B</span><span class="map-arrow">&rarr;</span> Status</div>
+                            <div class="map-item"><span class="col-tag">Y</span><span class="map-arrow">&rarr;</span> CNTTYPE</div>
+                            <div class="map-item"><span class="col-tag">AC</span><span class="map-arrow">&rarr;</span> PREM TERM</div>
+                            <div class="map-item"><span class="col-tag">AH</span><span class="map-arrow">&rarr;</span> PREMCESDTE</div>
+                            <div class="map-item"><span class="col-tag">AS</span><span class="map-arrow">&rarr;</span> ORIGINAL_SA</div>
+                            <div class="map-item"><span class="col-tag">AW</span><span class="map-arrow">&rarr;</span> NEXT_PAYDATE</div>
+                        </div>
+                        <div class="map-group">
+                            <h4>Output Columns</h4>
+                            <div class="map-item"><span class="col-tag gold">AZ</span><span class="map-arrow">&rarr;</span> TAT for Payment Due Date</div>
+                            <div class="map-item"><span class="col-tag gold">BA</span><span class="map-arrow">&rarr;</span> GLA Calculation</div>
+                        </div>
+                    </div>
+                    <div class="formula">
+                        <span class="c">// TAT</span><br>
+                        <span class="f">AZ</span> = <span class="f">NEXT_PAYDATE</span> &minus; <span class="f">PREMCESDTE</span><br><br>
+                        <span class="c">// GLA</span><br>
+                        <span class="k">IF</span> Status = <span class="s">"IF"</span> <span class="k">AND</span> CNTTYPE <span class="k">IN</span> {<span class="s">"MSB"</span>, <span class="s">"SMB"</span>}<br>
+                        &nbsp;&nbsp;<span class="k">THEN</span> <span class="n">1%</span> &times; ORIGINAL_SA &times; PREM_TERM<br>
+                        &nbsp;&nbsp;<span class="k">ELSE</span> <span class="n">0</span>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <script>
+    /* ═══ State ═══ */
+    let selFile = null, result = null, t0 = 0;
+
+    /* ═══ DOM ═══ */
+    const $ = id => document.getElementById(id);
+    const dropzone = $('dropzone'), fileInput = $('file-input');
+    const secUpload = $('upload-section'), secProc = $('processing-section'), secResult = $('results-section');
+
+    /* ═══ Helpers ═══ */
+    const fmtB = b => b < 1024 ? b+' B' : b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
+    const fmtN = n => (n==null||n==='-') ? '-' : Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+
+    function toast(msg, ok) {
+        const t = document.createElement('div');
+        t.className = 'toast ' + (ok ? 'ok' : 'err');
+        t.textContent = msg;
+        $('toasts').appendChild(t);
+        setTimeout(() => { t.style.animation = 'toastOut .3s forwards'; setTimeout(() => t.remove(), 300); }, 3500);
+    }
+
+    function show(el) {
+        [secUpload, secProc, secResult].forEach(s => s.classList.add('hidden'));
+        el.classList.remove('hidden');
+    }
+
+    function animVal(el, end, dur=700, dec=0) {
+        const t0 = performance.now();
+        (function tick(now) {
+            const p = Math.min((now - t0) / dur, 1);
+            const e = 1 - Math.pow(1 - p, 3);
+            const v = e * end;
+            el.textContent = dec ? fmtN(v) : fmtN(Math.round(v));
+            if (p < 1) requestAnimationFrame(tick);
+            else el.textContent = fmtN(end);
+        })(performance.now());
+    }
+
+    /* ═══ File Handling ═══ */
+    function pick(file) {
+        if (!file) return;
+        if (!file.name.match(/\.xlsx?$/i)) { toast('Please select an .xlsx file'); return; }
+        selFile = file;
+        $('f-name').textContent = file.name;
+        $('f-size').textContent = fmtB(file.size);
+        $('file-bar').classList.remove('hidden');
+        $('go-btn').disabled = false;
+    }
+    function clear() {
+        selFile = null; fileInput.value = '';
+        $('file-bar').classList.add('hidden');
+        $('go-btn').disabled = true;
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => pick(e.target.files[0]));
+    $('f-rm').addEventListener('click', e => { e.stopPropagation(); clear(); });
+    dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) pick(e.dataTransfer.files[0]); });
+
+    /* ═══ Steps ═══ */
+    const steps = ['s-upload','s-read','s-process','s-done'];
+    const lines = ['sl-1','sl-2','sl-3'];
+
+    function resetSteps() {
+        steps.forEach(id => $(id).classList.remove('done','active'));
+        lines.forEach(id => { const l = $(id); l.classList.remove('done','active'); });
+        $('prog-area').classList.remove('show');
+        $('live-stats').classList.remove('show');
+        $('prog-fill').style.width = '0%';
+        $('prog-pct').textContent = '0%';
+        $('prog-rows').textContent = '';
+        $('prog-eta').textContent = '';
+        $('lv-calc').textContent = '0';
+        $('lv-skip').textContent = '0';
+        $('lv-gla').textContent = '0';
+    }
+
+    function setStep(idx, state) {
+        for (let i = 0; i < idx; i++) { $(steps[i]).classList.remove('active'); $(steps[i]).classList.add('done'); }
+        for (let i = 0; i < lines.length; i++) {
+            $(lines[i]).classList.remove('done','active');
+            if (i < idx) $(lines[i]).classList.add('done');
+            else if (i === idx-1 && state === 'active') $(lines[i]).classList.add('active');
+        }
+        const el = $(steps[idx]);
+        el.classList.remove('done','active');
+        el.classList.add(state);
+    }
+
+    /* ═══ Process (SSE) ═══ */
+    $('go-btn').addEventListener('click', async () => {
+        if (!selFile) return;
+        const fd = new FormData();
+        fd.append('file', selFile);
+        fd.append('header_row', parseInt($('hrow').value) || 1);
+
+        show(secProc); resetSteps();
+        setStep(0, 'done'); setStep(1, 'active');
+        $('status-text').textContent = 'Reading file\u2026';
+        $('status-sub').textContent = selFile.name;
+        t0 = Date.now();
+
+        try {
+            const res = await fetch('/api/process', { method: 'POST', body: fd });
+            if (!res.ok) {
+                const e = await res.json().catch(() => ({detail:'Unknown error'}));
+                throw new Error(e.detail || 'Server error');
+            }
+
+            const reader = res.body.getReader(), dec = new TextDecoder();
+            let buf = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const parts = buf.split('\n\n'); buf = parts.pop();
+                for (const p of parts) {
+                    if (!p.trim()) continue;
+                    let ev = 'message', data = '';
+                    for (const l of p.split('\n')) {
+                        if (l.startsWith('event: ')) ev = l.slice(7);
+                        else if (l.startsWith('data: ')) data = l.slice(6);
+                    }
+                    if (data) onSSE(ev, JSON.parse(data));
+                }
+            }
+        } catch (e) {
+            show(secUpload);
+            toast(e.message || 'Processing failed');
+        }
+    });
+
+    function onSSE(ev, d) {
+        if (ev === 'stage') {
+            if (d.stage === 'reading') { setStep(1, 'active'); $('status-text').textContent = 'Reading Excel file\u2026'; }
+            if (d.stage === 'processing') {
+                setStep(1, 'done'); setStep(2, 'active');
+                $('status-text').textContent = 'Processing rows\u2026';
+                $('status-sub').textContent = fmtN(d.total) + ' rows to compute';
+                $('prog-area').classList.add('show');
+                $('live-stats').classList.add('show');
+                $('prog-rows').textContent = '0 / ' + fmtN(d.total);
+            }
+            if (d.stage === 'saving') {
+                setStep(2, 'done'); setStep(3, 'active');
+                $('status-text').textContent = 'Saving output\u2026';
+                $('prog-fill').style.width = '100%';
+                $('prog-pct').textContent = '100%';
+                $('prog-label').textContent = 'Saving\u2026';
+            }
+        }
+        if (ev === 'progress') {
+            $('prog-fill').style.width = d.percent + '%';
+            $('prog-pct').textContent = d.percent.toFixed(1) + '%';
+            $('prog-rows').textContent = fmtN(d.current) + ' / ' + fmtN(d.total);
+            $('lv-calc').textContent = fmtN(d.processed);
+            $('lv-skip').textContent = fmtN(d.skipped);
+            $('lv-gla').textContent = fmtN(d.gla);
+            const el = (Date.now() - t0) / 1000;
+            if (el > 0.3 && d.current > 0) {
+                const spd = Math.round(d.current / el);
+                const eta = d.total > d.current ? Math.ceil((d.total - d.current) / spd) : 0;
+                const es = eta >= 60 ? Math.floor(eta/60)+'m '+eta%60+'s' : eta+'s';
+                $('prog-eta').textContent = fmtN(spd) + ' rows/sec  \u00b7  ~' + es + ' left';
+            }
+        }
+        if (ev === 'complete') {
+            setStep(3, 'done');
+            $('status-text').textContent = 'Complete';
+            $('prog-label').textContent = 'Done';
+            const dur = ((Date.now() - t0)/1000).toFixed(1);
+            $('prog-eta').textContent = 'Finished in ' + dur + 's';
+            result = d;
+            setTimeout(() => { render(d); show(secResult); secResult.scrollIntoView({behavior:'smooth',block:'start'}); toast('File processed successfully','ok'); }, 850);
+        }
+        if (ev === 'error') { show(secUpload); toast(d.message || 'Processing failed'); }
+    }
+
+    /* ═══ Results ═══ */
+    function render(d) {
+        $('r-file').textContent = d.output_filename;
+        $('r-pcount').textContent = d.preview.length + ' of ' + d.processed + ' rows';
+        animVal($('r-total'), d.total_rows, 600);
+        animVal($('r-proc'), d.processed, 600);
+        animVal($('r-skip'), d.skipped, 600);
+        animVal($('r-gla'), d.total_gla, 900, 1);
+
+        const tb = $('r-tbody'); tb.innerHTML = '';
+        d.preview.forEach((r, i) => {
+            const tr = document.createElement('tr');
+            tr.className = 'fade-row';
+            tr.style.animationDelay = i * 25 + 'ms';
+            const gc = r.gla === 0 ? 'gla-nil' : 'gla-val';
+            tr.innerHTML =
+                '<td class="muted">' + r.row + '</td>' +
+                '<td>' + r.status + '</td>' +
+                '<td>' + r.cnttype + '</td>' +
+                '<td class="r">' + r.prem_term + '</td>' +
+                '<td>' + r.premcesdte + '</td>' +
+                '<td class="r">' + (typeof r.original_sa==='number' ? fmtN(r.original_sa) : r.original_sa) + '</td>' +
+                '<td>' + r.next_paydate + '</td>' +
+                '<td class="out">' + r.tat + '</td>' +
+                '<td class="out ' + gc + '">' + (typeof r.gla==='number' ? fmtN(r.gla) : r.gla) + '</td>';
+            tb.appendChild(tr);
+        });
+    }
+
+    /* ═══ Download & Reset ═══ */
+    $('dl-btn').addEventListener('click', () => {
+        if (!result) return;
+        const a = document.createElement('a');
+        a.href = '/api/download/' + result.file_id + '?filename=' + encodeURIComponent(result.output_filename);
+        a.download = result.output_filename;
+        document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    $('reset-btn').addEventListener('click', () => { clear(); result = null; show(secUpload); });
+    </script>
+</body>
+</html>
