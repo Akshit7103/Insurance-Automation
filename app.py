@@ -140,9 +140,9 @@ def process_stream(input_path: str, output_path: str, header_row: int,
                     "percent": round(current / total_rows * 100, 1) if total_rows > 0 else 100,
                 })
 
-        # Write output column header at BA2 with yellow highlight (after processing so it won't be overwritten)
+        # Write output column header at the header row with yellow highlight
         yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-        header_cell = ws.cell(row=2, column=col["GLA"])
+        header_cell = ws.cell(row=header_row, column=col["GLA"])
         header_cell.value = "Protiviti Output GLA"
         header_cell.fill = yellow_fill
 
@@ -191,7 +191,7 @@ async def serve_index():
 @app.post("/api/process")
 async def api_process(
     file: UploadFile = File(...),
-    header_row: int = Form(default=1),
+    header_row: int = Form(default=2),
 ):
     if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls", ".csv")):
         raise HTTPException(status_code=400, detail="Please upload an Excel (.xlsx) or CSV (.csv) file")
