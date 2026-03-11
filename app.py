@@ -10,8 +10,8 @@ from typing import Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill
-from openpyxl.utils import column_index_from_string
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side, numbers
+from openpyxl.utils import column_index_from_string, get_column_letter
 
 app = FastAPI(title="GLA Calculator")
 
@@ -32,6 +32,27 @@ INPUT_COLUMNS = {
 OUTPUT_COLUMNS = {
     "GLA":  "BA",
 }
+
+# === Excel Styling ===
+YELLOW_FILL = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+LIGHT_YELLOW_FILL = PatternFill(start_color="FFFFF0", end_color="FFFFF0", fill_type="solid")
+LIGHT_GREEN_FILL = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+HEADER_FONT = Font(name="Calibri", bold=True, size=11, color="000000")
+GLA_HEADER_FONT = Font(name="Calibri", bold=True, size=11, color="000000")
+GLA_VALUE_FONT = Font(name="Calibri", size=11, color="1F4E79")
+GLA_VALUE_FONT_HIGHLIGHT = Font(name="Calibri", bold=True, size=11, color="006100")
+THIN_BORDER = Border(
+    left=Side(style="thin", color="D9D9D9"),
+    right=Side(style="thin", color="D9D9D9"),
+    top=Side(style="thin", color="D9D9D9"),
+    bottom=Side(style="thin", color="D9D9D9"),
+)
+HEADER_BORDER = Border(
+    left=Side(style="thin", color="B0B0B0"),
+    right=Side(style="thin", color="B0B0B0"),
+    top=Side(style="medium", color="C8A53A"),
+    bottom=Side(style="medium", color="C8A53A"),
+)
 
 
 def csv_to_xlsx(csv_path: str, xlsx_path: str):
@@ -58,6 +79,40 @@ def cleanup_old_files(max_age_seconds: int = 3600):
 
 def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def format_output_column(ws, header_row: int, data_start: int, max_row: int, gla_col: int):
+    """Apply beautiful formatting to the GLA output column."""
+
+    # --- Header cell at header_row (BA2) ---
+    header_cell = ws.cell(row=header_row, column=gla_col)
+    header_cell.value = "Protiviti Output GLA"
+    header_cell.fill = YELLOW_FILL
+    header_cell.font = GLA_HEADER_FONT
+    header_cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    header_cell.border = HEADER_BORDER
+
+    # --- Set column width ---
+    col_letter = get_column_letter(gla_col)
+    ws.column_dimensions[col_letter].width = 22
+
+    # --- Style each data cell ---
+    for row_num in range(data_start, max_row + 1):
+        cell = ws.cell(row=row_num, column=gla_col)
+        val = cell.value
+
+        # Number format with 2 decimal places and comma separator
+        cell.number_format = '#,##0.00'
+        cell.alignment = Alignment(horizontal="right", vertical="center")
+        cell.border = THIN_BORDER
+
+        # Green background + bold for non-zero GLA, light yellow for zero
+        if val is not None and val != 0:
+            cell.fill = LIGHT_GREEN_FILL
+            cell.font = GLA_VALUE_FONT_HIGHLIGHT
+        else:
+            cell.fill = LIGHT_YELLOW_FILL
+            cell.font = GLA_VALUE_FONT
 
 
 def process_stream(input_path: str, output_path: str, header_row: int,
@@ -140,11 +195,8 @@ def process_stream(input_path: str, output_path: str, header_row: int,
                     "percent": round(current / total_rows * 100, 1) if total_rows > 0 else 100,
                 })
 
-        # Write output column header at the header row with yellow highlight
-        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-        header_cell = ws.cell(row=header_row, column=col["GLA"])
-        header_cell.value = "Protiviti Output GLA"
-        header_cell.fill = yellow_fill
+        # ── Format the output column (header + data cells) ──
+        format_output_column(ws, header_row, data_start, ws.max_row, col["GLA"])
 
         # ── Stage: Saving ──
         yield sse("stage", {"stage": "saving"})
