@@ -593,12 +593,12 @@
                 <span class="bracket br"></span>
 
                 <div class="dropzone" id="dropzone">
-                    <input type="file" id="file-input" accept=".xlsx,.xls" hidden>
+                    <input type="file" id="file-input" accept=".xlsx,.xls,.csv" hidden>
                     <div class="drop-icon">
                         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     </div>
                     <h3>Drop your Excel file here</h3>
-                    <p class="sub">or <b id="browse-trigger">click to browse</b> &mdash; .xlsx supported</p>
+                    <p class="sub">or <b id="browse-trigger">click to browse</b> &mdash; .xlsx &amp; .csv supported</p>
                 </div>
 
                 <div class="file-bar hidden" id="file-bar">
@@ -785,7 +785,7 @@
     /* ═══ File Handling ═══ */
     function pick(file) {
         if (!file) return;
-        if (!file.name.match(/\.xlsx?$/i)) { toast('Please select an .xlsx file'); return; }
+        if (!file.name.match(/\.(xlsx?|csv)$/i)) { toast('Please select an .xlsx or .csv file'); return; }
         selFile = file;
         $('f-name').textContent = file.name;
         $('f-size').textContent = fmtB(file.size);

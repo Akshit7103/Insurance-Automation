@@ -1,4 +1,5 @@
 import os
+import csv
 import uuid
 import json
 import time
@@ -8,7 +9,7 @@ from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils import column_index_from_string
 
 app = FastAPI(title="GLA Calculator")
@@ -31,6 +32,17 @@ OUTPUT_COLUMNS = {
     "TAT":  "AZ",
     "GLA":  "BA",
 }
+
+
+def csv_to_xlsx(csv_path: str, xlsx_path: str):
+    """Convert a CSV file to XLSX so the rest of the pipeline stays unchanged."""
+    wb = Workbook()
+    ws = wb.active
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
+        for row in csv.reader(f):
+            ws.append(row)
+    wb.save(xlsx_path)
+    wb.close()
 
 
 def cleanup_old_files(max_age_seconds: int = 3600):
@@ -187,20 +199,35 @@ async def api_process(
     file: UploadFile = File(...),
     header_row: int = Form(default=1),
 ):
-    if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
-        raise HTTPException(status_code=400, detail="Please upload an Excel file (.xlsx)")
+    if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls", ".csv")):
+        raise HTTPException(status_code=400, detail="Please upload an Excel (.xlsx) or CSV (.csv) file")
 
     cleanup_old_files()
 
     file_id = str(uuid.uuid4())
-    input_path  = os.path.join(TEMP_DIR, f"{file_id}_in.xlsx")
+    is_csv = file.filename.lower().endswith(".csv")
+    raw_ext = ".csv" if is_csv else ".xlsx"
+    raw_path = os.path.join(TEMP_DIR, f"{file_id}_raw{raw_ext}")
+    input_path = os.path.join(TEMP_DIR, f"{file_id}_in.xlsx")
     output_path = os.path.join(TEMP_DIR, f"{file_id}_out.xlsx")
 
     try:
-        with open(input_path, "wb") as f:
+        with open(raw_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+
+    if is_csv:
+        try:
+            csv_to_xlsx(raw_path, input_path)
+            os.remove(raw_path)
+        except Exception as e:
+            for p in [raw_path, input_path]:
+                if os.path.exists(p):
+                    os.remove(p)
+            raise HTTPException(status_code=400, detail=f"Failed to read CSV: {str(e)}")
+    else:
+        os.rename(raw_path, input_path)
 
     return StreamingResponse(
         process_stream(input_path, output_path, header_row, file_id, file.filename),
