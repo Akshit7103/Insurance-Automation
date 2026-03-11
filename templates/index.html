@@ -690,7 +690,7 @@
                                 <th>Row</th><th>Status (B)</th><th>CNTTYPE (Y)</th>
                                 <th>Prem Term (AC)</th><th>PREMCESDTE (AH)</th>
                                 <th>Original SA (AS)</th><th>Next Pay (AW)</th>
-                                <th class="out">TAT (AZ)</th><th class="out">GLA (BA)</th>
+                                <th class="out">GLA (BA)</th>
                             </tr>
                         </thead>
                         <tbody id="r-tbody"></tbody>
@@ -727,13 +727,10 @@
                         </div>
                         <div class="map-group">
                             <h4>Output Columns</h4>
-                            <div class="map-item"><span class="col-tag gold">AZ</span><span class="map-arrow">&rarr;</span> TAT for Payment Due Date</div>
-                            <div class="map-item"><span class="col-tag gold">BA</span><span class="map-arrow">&rarr;</span> GLA Calculation</div>
+                            <div class="map-item"><span class="col-tag gold">BA</span><span class="map-arrow">&rarr;</span> Protiviti Output GLA</div>
                         </div>
                     </div>
                     <div class="formula">
-                        <span class="c">// TAT</span><br>
-                        <span class="f">AZ</span> = <span class="f">NEXT_PAYDATE</span> &minus; <span class="f">PREMCESDTE</span><br><br>
                         <span class="c">// GLA</span><br>
                         <span class="k">IF</span> Status = <span class="s">"IF"</span> <span class="k">AND</span> CNTTYPE <span class="k">IN</span> {<span class="s">"MSB"</span>, <span class="s">"SMB"</span>}<br>
                         &nbsp;&nbsp;<span class="k">THEN</span> <span class="n">1%</span> &times; ORIGINAL_SA &times; PREM_TERM<br>
@@ -948,7 +945,6 @@
                 '<td>' + r.premcesdte + '</td>' +
                 '<td class="r">' + (typeof r.original_sa==='number' ? fmtN(r.original_sa) : r.original_sa) + '</td>' +
                 '<td>' + r.next_paydate + '</td>' +
-                '<td class="out">' + r.tat + '</td>' +
                 '<td class="out ' + gc + '">' + (typeof r.gla==='number' ? fmtN(r.gla) : r.gla) + '</td>';
             tb.appendChild(tr);
         });

@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill
 from openpyxl.utils import column_index_from_string
 
 app = FastAPI(title="GLA Calculator")
@@ -29,7 +30,6 @@ INPUT_COLUMNS = {
     "NEXT_PAYDATE": "AW",
 }
 OUTPUT_COLUMNS = {
-    "TAT":  "AZ",
     "GLA":  "BA",
 }
 
@@ -75,9 +75,11 @@ def process_stream(input_path: str, output_path: str, header_row: int,
         ws = wb.active
         total_rows = max(0, ws.max_row - header_row)
 
-        # Write output column headers
-        ws.cell(row=header_row, column=col["TAT"]).value = "TAT"
-        ws.cell(row=header_row, column=col["GLA"]).value = "GLA"
+        # Write output column header at BA2 with yellow highlight
+        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        header_cell = ws.cell(row=2, column=col["GLA"])
+        header_cell.value = "Protiviti Output GLA"
+        header_cell.fill = yellow_fill
 
         # ── Stage: Processing ──
         yield sse("stage", {"stage": "processing", "total": total_rows})
@@ -100,16 +102,6 @@ def process_stream(input_path: str, output_path: str, header_row: int,
             if status is None and cnttype is None and original_sa is None:
                 skipped += 1
             else:
-                # TAT = NEXT_PAYDATE - PREMCESDTE (days)
-                tat = None
-                if next_paydate is not None and premcesdte is not None:
-                    try:
-                        npd = next_paydate if isinstance(next_paydate, datetime) else datetime.strptime(str(next_paydate).strip(), "%Y-%m-%d")
-                        pcd = premcesdte if isinstance(premcesdte, datetime) else datetime.strptime(str(premcesdte).strip(), "%Y-%m-%d")
-                        tat = (npd - pcd).days
-                    except (ValueError, TypeError):
-                        tat = None
-
                 # GLA = IF(AND(Status="IF", OR(CNTTYPE in {MSB,SMB})), 1% * SA * PT, 0)
                 gla = 0.0
                 status_str  = str(status).strip().upper() if status else ""
@@ -122,7 +114,6 @@ def process_stream(input_path: str, output_path: str, header_row: int,
                     except (ValueError, TypeError):
                         gla = 0.0
 
-                ws.cell(row=row_num, column=col["TAT"]).value = tat
                 ws.cell(row=row_num, column=col["GLA"]).value = gla
                 processed += 1
                 total_gla += gla
@@ -141,7 +132,6 @@ def process_stream(input_path: str, output_path: str, header_row: int,
                         "premcesdte": fmt_date(premcesdte),
                         "original_sa": original_sa if original_sa is not None else "-",
                         "next_paydate": fmt_date(next_paydate),
-                        "tat": tat if tat is not None else "-",
                         "gla": gla,
                     })
 
