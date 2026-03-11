@@ -75,12 +75,6 @@ def process_stream(input_path: str, output_path: str, header_row: int,
         ws = wb.active
         total_rows = max(0, ws.max_row - header_row)
 
-        # Write output column header at BA2 with yellow highlight
-        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-        header_cell = ws.cell(row=2, column=col["GLA"])
-        header_cell.value = "Protiviti Output GLA"
-        header_cell.fill = yellow_fill
-
         # ── Stage: Processing ──
         yield sse("stage", {"stage": "processing", "total": total_rows})
 
@@ -145,6 +139,12 @@ def process_stream(input_path: str, output_path: str, header_row: int,
                     "gla": round(total_gla, 2),
                     "percent": round(current / total_rows * 100, 1) if total_rows > 0 else 100,
                 })
+
+        # Write output column header at BA2 with yellow highlight (after processing so it won't be overwritten)
+        yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+        header_cell = ws.cell(row=2, column=col["GLA"])
+        header_cell.value = "Protiviti Output GLA"
+        header_cell.fill = yellow_fill
 
         # ── Stage: Saving ──
         yield sse("stage", {"stage": "saving"})
