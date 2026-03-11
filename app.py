@@ -75,6 +75,10 @@ def process_stream(input_path: str, output_path: str, header_row: int,
         ws = wb.active
         total_rows = max(0, ws.max_row - header_row)
 
+        # Write output column headers
+        ws.cell(row=header_row, column=col["TAT"]).value = "TAT"
+        ws.cell(row=header_row, column=col["GLA"]).value = "GLA"
+
         # ── Stage: Processing ──
         yield sse("stage", {"stage": "processing", "total": total_rows})
 
