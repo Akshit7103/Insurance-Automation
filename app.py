@@ -81,6 +81,59 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+HEADER_FILL = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+INPUT_HEADER_FONT = Font(name="Calibri", bold=True, size=11, color="1F4E79")
+DATA_BORDER = Border(
+    left=Side(style="thin", color="B0B0B0"),
+    right=Side(style="thin", color="B0B0B0"),
+    top=Side(style="thin", color="B0B0B0"),
+    bottom=Side(style="thin", color="B0B0B0"),
+)
+INPUT_HEADER_BORDER = Border(
+    left=Side(style="thin", color="8EA9C8"),
+    right=Side(style="thin", color="8EA9C8"),
+    top=Side(style="medium", color="1F4E79"),
+    bottom=Side(style="medium", color="1F4E79"),
+)
+
+
+def format_entire_sheet(ws, header_row: int, data_start: int, max_row: int, gla_col: int):
+    """Apply borders and formatting across the entire sheet."""
+    max_col = ws.max_column
+
+    # --- Header row: bold, blue fill, bordered ---
+    for c in range(1, max_col + 1):
+        cell = ws.cell(row=header_row, column=c)
+        if c == gla_col:
+            continue  # GLA header styled separately
+        if cell.value is not None:
+            cell.font = INPUT_HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = INPUT_HEADER_BORDER
+
+    # --- Data rows: borders on all cells with data ---
+    for row_num in range(data_start, max_row + 1):
+        for c in range(1, max_col + 1):
+            cell = ws.cell(row=row_num, column=c)
+            if c == gla_col:
+                continue  # GLA data cells styled separately
+            cell.border = DATA_BORDER
+            cell.alignment = Alignment(vertical="center")
+
+    # --- Auto-fit column widths (approximate) ---
+    for c in range(1, max_col + 1):
+        if c == gla_col:
+            continue  # already set
+        col_letter = get_column_letter(c)
+        max_len = 0
+        for row_num in range(header_row, max_row + 1):
+            val = ws.cell(row=row_num, column=c).value
+            if val is not None:
+                max_len = max(max_len, len(str(val)))
+        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 8), 30)
+
+
 def format_output_column(ws, header_row: int, data_start: int, max_row: int, gla_col: int):
     """Apply beautiful formatting to the GLA output column."""
 
@@ -195,7 +248,8 @@ def process_stream(input_path: str, output_path: str, header_row: int,
                     "percent": round(current / total_rows * 100, 1) if total_rows > 0 else 100,
                 })
 
-        # ── Format the output column (header + data cells) ──
+        # ── Format the entire sheet + output column ──
+        format_entire_sheet(ws, header_row, data_start, ws.max_row, col["GLA"])
         format_output_column(ws, header_row, data_start, ws.max_row, col["GLA"])
 
         # ── Stage: Saving ──
