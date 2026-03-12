@@ -243,6 +243,19 @@
             outline: none; transition: all 0.2s;
         }
         .field input:focus { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
+        .field select {
+            padding: 7px 28px 7px 10px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 4px; color: var(--text);
+            font-family: var(--sans); font-size: 0.85rem;
+            font-weight: 500; outline: none; cursor: pointer;
+            transition: all 0.2s;
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239e99a8'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center; background-size: 8px;
+        }
+        .field select:focus { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold-dim); }
+        .field select option { background: var(--bg); color: var(--text); }
         .controls .spacer { flex: 1; }
 
         /* ═══ Buttons ═══ */
@@ -579,7 +592,7 @@
         <!-- Header -->
         <header class="header">
             <div class="badge">Protiviti</div>
-            <h1>GLA <em>Calculator</em></h1>
+            <h1>Insurance <em>Calculator</em></h1>
             <p>Upload &middot; Compute &middot; Download</p>
             <div class="header-rule"></div>
         </header>
@@ -613,6 +626,13 @@
                 </div>
 
                 <div class="controls">
+                    <div class="field">
+                        <label for="calc-type">Calculation</label>
+                        <select id="calc-type">
+                            <option value="gla">GLA</option>
+                            <option value="fra">FRA</option>
+                        </select>
+                    </div>
                     <div class="field">
                         <label for="hrow">Header Row</label>
                         <input type="number" id="hrow" value="2" min="1" max="100">
@@ -659,7 +679,7 @@
                 <div class="live-stats" id="live-stats">
                     <div class="lstat"><div class="lstat-label">Calculated</div><div class="lstat-val" id="lv-calc">0</div></div>
                     <div class="lstat"><div class="lstat-label">Skipped</div><div class="lstat-val" id="lv-skip">0</div></div>
-                    <div class="lstat"><div class="lstat-label">Running GLA</div><div class="lstat-val" id="lv-gla">0</div></div>
+                    <div class="lstat"><div class="lstat-label" id="lv-gla-label">Running Total</div><div class="lstat-val" id="lv-gla">0</div></div>
                 </div>
             </div>
         </section>
@@ -675,7 +695,7 @@
                 <div class="scard c-sky"><div class="scard-label">Total Rows</div><div class="scard-val" id="r-total">-</div></div>
                 <div class="scard c-green"><div class="scard-label">Processed</div><div class="scard-val" id="r-proc">-</div></div>
                 <div class="scard c-amber"><div class="scard-label">Skipped</div><div class="scard-val" id="r-skip">-</div></div>
-                <div class="scard c-gold"><div class="scard-label">Total GLA</div><div class="scard-val" id="r-gla">-</div></div>
+                <div class="scard c-gold"><div class="scard-label" id="r-gla-label">Total</div><div class="scard-val" id="r-gla">-</div></div>
             </div>
 
             <div class="tcard">
@@ -685,12 +705,10 @@
                 </div>
                 <div class="twrap">
                     <table>
-                        <thead>
+                        <thead id="r-thead">
                             <tr>
-                                <th>Row</th><th>Status (B)</th><th>CNTTYPE (Y)</th>
-                                <th>Prem Term (AC)</th><th>PREMCESDTE (AH)</th>
-                                <th>Original SA (AS)</th><th>Next Pay (AW)</th>
-                                <th class="out">GLA (BA)</th>
+                                <th>Row</th><th>Status</th><th>CNTTYPE</th>
+                                <th class="out">Result</th>
                             </tr>
                         </thead>
                         <tbody id="r-tbody"></tbody>
@@ -713,7 +731,7 @@
         <!-- ═══ Reference ═══ -->
         <div class="ref-section">
             <details class="ref-card">
-                <summary>Column Mapping & Formula Reference</summary>
+                <summary>GLA Formula Reference</summary>
                 <div class="ref-body">
                     <div class="map-grid">
                         <div class="map-group">
@@ -721,20 +739,51 @@
                             <div class="map-item"><span class="col-tag">B</span><span class="map-arrow">&rarr;</span> Status</div>
                             <div class="map-item"><span class="col-tag">Y</span><span class="map-arrow">&rarr;</span> CNTTYPE</div>
                             <div class="map-item"><span class="col-tag">AC</span><span class="map-arrow">&rarr;</span> PREM TERM</div>
-                            <div class="map-item"><span class="col-tag">AH</span><span class="map-arrow">&rarr;</span> PREMCESDTE</div>
                             <div class="map-item"><span class="col-tag">AS</span><span class="map-arrow">&rarr;</span> ORIGINAL_SA</div>
-                            <div class="map-item"><span class="col-tag">AW</span><span class="map-arrow">&rarr;</span> NEXT_PAYDATE</div>
                         </div>
                         <div class="map-group">
-                            <h4>Output Columns</h4>
+                            <h4>Output</h4>
                             <div class="map-item"><span class="col-tag gold">BA</span><span class="map-arrow">&rarr;</span> Protiviti Output GLA</div>
                         </div>
                     </div>
                     <div class="formula">
-                        <span class="c">// GLA</span><br>
                         <span class="k">IF</span> Status = <span class="s">"IF"</span> <span class="k">AND</span> CNTTYPE <span class="k">IN</span> {<span class="s">"MSB"</span>, <span class="s">"SMB"</span>}<br>
                         &nbsp;&nbsp;<span class="k">THEN</span> <span class="n">1%</span> &times; ORIGINAL_SA &times; PREM_TERM<br>
                         &nbsp;&nbsp;<span class="k">ELSE</span> <span class="n">0</span>
+                    </div>
+                </div>
+            </details>
+            <details class="ref-card" style="margin-top: 10px;">
+                <summary>FRA Formula Reference</summary>
+                <div class="ref-body">
+                    <div class="map-grid">
+                        <div class="map-group">
+                            <h4>Input Columns</h4>
+                            <div class="map-item"><span class="col-tag">B</span><span class="map-arrow">&rarr;</span> Status</div>
+                            <div class="map-item"><span class="col-tag">Y</span><span class="map-arrow">&rarr;</span> CNTTYPE (must be FSP)</div>
+                            <div class="map-item"><span class="col-tag">AB</span><span class="map-arrow">&rarr;</span> Risk Term</div>
+                            <div class="map-item"><span class="col-tag">AD</span><span class="map-arrow">&rarr;</span> Frequency</div>
+                            <div class="map-item"><span class="col-tag">AE</span><span class="map-arrow">&rarr;</span> RCDDATE</div>
+                            <div class="map-item"><span class="col-tag">AF</span><span class="map-arrow">&rarr;</span> PAIDTODATE</div>
+                            <div class="map-item"><span class="col-tag">AH</span><span class="map-arrow">&rarr;</span> PREMCESDTE</div>
+                            <div class="map-item"><span class="col-tag">AW</span><span class="map-arrow">&rarr;</span> NEXT_PAYDATE</div>
+                            <div class="map-item"><span class="col-tag">AZ</span><span class="map-arrow">&rarr;</span> Base Premium</div>
+                        </div>
+                        <div class="map-group">
+                            <h4>Output</h4>
+                            <div class="map-item"><span class="col-tag gold">BF</span><span class="map-arrow">&rarr;</span> Protiviti Output FRA</div>
+                            <h4 style="margin-top:12px">Annualization</h4>
+                            <div class="map-item"><span class="col-tag">1</span><span class="map-arrow">&rarr;</span> Annual: &times;1</div>
+                            <div class="map-item"><span class="col-tag">2</span><span class="map-arrow">&rarr;</span> Semi: &divide;0.51</div>
+                            <div class="map-item"><span class="col-tag">4</span><span class="map-arrow">&rarr;</span> Quarterly: &divide;0.26</div>
+                            <div class="map-item"><span class="col-tag">12</span><span class="map-arrow">&rarr;</span> Monthly: &divide;0.09083</div>
+                        </div>
+                    </div>
+                    <div class="formula">
+                        <span class="c">// Only when CNTTYPE=FSP &amp; PolicyYearCheck=1</span><br>
+                        <span class="k">IF</span> Status <span class="k">IN</span> {<span class="s">"DH"</span>,<span class="s">"SU"</span>,<span class="s">"CF"</span>} &rarr; <span class="n">0</span><br>
+                        <span class="k">IF</span> Status = <span class="s">"IF"</span> &rarr; AP&times;<span class="n">8%</span> + AP&times;<span class="n">9%</span> + AP&times;<span class="n">10%</span>&times;(RiskTerm&minus;2)<br>
+                        <span class="k">ELSE</span> &rarr; AP&times;<span class="n">8%</span> + AP&times;<span class="n">9%</span> + AP&times;<span class="n">10%</span>&times;(YrsPaid&minus;2) + AP&times;PUF&times;(RT&minus;YrsPaid)&times;<span class="n">10%</span>
                     </div>
                 </div>
             </details>
@@ -743,7 +792,35 @@
 
     <script>
     /* ═══ State ═══ */
-    let selFile = null, result = null, t0 = 0;
+    let selFile = null, result = null, t0 = 0, activeCalc = 'gla';
+
+    /* ═══ Table configs per calc type ═══ */
+    const TABLE_CFG = {
+        gla: {
+            label: 'GLA',
+            headers: ['Row','Status (B)','CNTTYPE (Y)','Prem Term (AC)','PREMCESDTE (AH)','Original SA (AS)','Next Pay (AW)','GLA (BA)'],
+            outIdx: 7,
+            rowFn: (r, gc) =>
+                '<td class="muted">'+r.row+'</td>'+
+                '<td>'+r.status+'</td><td>'+r.cnttype+'</td>'+
+                '<td class="r">'+r.prem_term+'</td><td>'+r.premcesdte+'</td>'+
+                '<td class="r">'+(typeof r.original_sa==='number'?fmtN(r.original_sa):r.original_sa)+'</td>'+
+                '<td>'+r.next_paydate+'</td>'+
+                '<td class="out '+gc+'">'+(typeof r.result==='number'?fmtN(r.result):r.result)+'</td>',
+        },
+        fra: {
+            label: 'FRA',
+            headers: ['Row','Status (B)','CNTTYPE (Y)','Risk Term (AB)','Freq (AD)','Base Prem (AZ)','RCDDATE (AE)','PAIDTODATE (AF)','FRA (BF)'],
+            outIdx: 8,
+            rowFn: (r, gc) =>
+                '<td class="muted">'+r.row+'</td>'+
+                '<td>'+r.status+'</td><td>'+r.cnttype+'</td>'+
+                '<td class="r">'+r.risk_term+'</td><td class="r">'+r.frequency+'</td>'+
+                '<td class="r">'+(typeof r.base_premium==='number'?fmtN(r.base_premium):r.base_premium)+'</td>'+
+                '<td>'+r.rcddate+'</td><td>'+r.paidtodate+'</td>'+
+                '<td class="out '+gc+'">'+(typeof r.result==='number'?fmtN(r.result):r.result)+'</td>',
+        },
+    };
 
     /* ═══ DOM ═══ */
     const $ = id => document.getElementById(id);
@@ -835,9 +912,11 @@
     /* ═══ Process (SSE) ═══ */
     $('go-btn').addEventListener('click', async () => {
         if (!selFile) return;
+        activeCalc = $('calc-type').value;
         const fd = new FormData();
         fd.append('file', selFile);
-        fd.append('header_row', parseInt($('hrow').value) || 1);
+        fd.append('header_row', parseInt($('hrow').value) || 2);
+        fd.append('calc_type', activeCalc);
 
         show(secProc); resetSteps();
         setStep(0, 'done'); setStep(1, 'active');
@@ -901,7 +980,7 @@
             $('prog-rows').textContent = fmtN(d.current) + ' / ' + fmtN(d.total);
             $('lv-calc').textContent = fmtN(d.processed);
             $('lv-skip').textContent = fmtN(d.skipped);
-            $('lv-gla').textContent = fmtN(d.gla);
+            $('lv-gla').textContent = fmtN(d.result_total);
             const el = (Date.now() - t0) / 1000;
             if (el > 0.3 && d.current > 0) {
                 const spd = Math.round(d.current / el);
@@ -924,28 +1003,35 @@
 
     /* ═══ Results ═══ */
     function render(d) {
+        const cfg = TABLE_CFG[activeCalc];
         $('r-file').textContent = d.output_filename;
         $('r-pcount').textContent = d.preview.length + ' of ' + d.processed + ' rows';
+        $('r-gla-label').textContent = 'Total ' + cfg.label;
+        $('lv-gla-label').textContent = 'Running ' + cfg.label;
         animVal($('r-total'), d.total_rows, 600);
         animVal($('r-proc'), d.processed, 600);
         animVal($('r-skip'), d.skipped, 600);
-        animVal($('r-gla'), d.total_gla, 900, 1);
+        animVal($('r-gla'), d.result_total, 900, 1);
 
+        // Build dynamic table header
+        const thead = $('r-thead'); thead.innerHTML = '';
+        const htr = document.createElement('tr');
+        cfg.headers.forEach((h, i) => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            if (i === cfg.outIdx) th.className = 'out';
+            htr.appendChild(th);
+        });
+        thead.appendChild(htr);
+
+        // Build rows
         const tb = $('r-tbody'); tb.innerHTML = '';
         d.preview.forEach((r, i) => {
             const tr = document.createElement('tr');
             tr.className = 'fade-row';
             tr.style.animationDelay = i * 25 + 'ms';
-            const gc = r.gla === 0 ? 'gla-nil' : 'gla-val';
-            tr.innerHTML =
-                '<td class="muted">' + r.row + '</td>' +
-                '<td>' + r.status + '</td>' +
-                '<td>' + r.cnttype + '</td>' +
-                '<td class="r">' + r.prem_term + '</td>' +
-                '<td>' + r.premcesdte + '</td>' +
-                '<td class="r">' + (typeof r.original_sa==='number' ? fmtN(r.original_sa) : r.original_sa) + '</td>' +
-                '<td>' + r.next_paydate + '</td>' +
-                '<td class="out ' + gc + '">' + (typeof r.gla==='number' ? fmtN(r.gla) : r.gla) + '</td>';
+            const gc = r.result === 0 ? 'gla-nil' : 'gla-val';
+            tr.innerHTML = cfg.rowFn(r, gc);
             tb.appendChild(tr);
         });
     }
