@@ -123,15 +123,29 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+DATE_FORMATS = [
+    "%Y-%m-%d",            # 2015-03-14
+    "%d-%b-%y",            # 14-Mar-15
+    "%d-%b-%Y",            # 14-Mar-2015
+    "%d%b%Y",              # 14MAR2015
+    "%d-%m-%Y",            # 14-03-2015
+    "%d/%m/%Y",            # 14/03/2015
+    "%Y-%m-%d %H:%M:%S",  # 2015-03-14 00:00:00
+]
+
+
 def to_date(val):
     if val is None:
         return None
     if isinstance(val, datetime):
         return val
-    try:
-        return datetime.strptime(str(val).strip(), "%Y-%m-%d")
-    except (ValueError, TypeError):
-        return None
+    s = str(val).strip()
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt)
+        except (ValueError, TypeError):
+            continue
+    return None
 
 
 def years_between(start, end):
@@ -177,6 +191,11 @@ def format_entire_sheet(ws, header_row, data_start, max_row, skip_cols):
             cell.alignment = Alignment(vertical="center")
             if isinstance(cell.value, datetime):
                 cell.number_format = 'DD-MMM-YY'
+            elif isinstance(cell.value, str):
+                d = to_date(cell.value)
+                if d is not None:
+                    cell.value = d
+                    cell.number_format = 'DD-MMM-YY'
     for c in range(1, max_col + 1):
         if c in skip_cols:
             continue
