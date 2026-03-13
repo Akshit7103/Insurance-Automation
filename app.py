@@ -175,6 +175,8 @@ def format_entire_sheet(ws, header_row, data_start, max_row, skip_cols):
             cell = ws.cell(row=row_num, column=c)
             cell.border = DATA_BORDER
             cell.alignment = Alignment(vertical="center")
+            if isinstance(cell.value, datetime):
+                cell.number_format = 'DD-MMM-YY'
     for c in range(1, max_col + 1):
         if c in skip_cols:
             continue
