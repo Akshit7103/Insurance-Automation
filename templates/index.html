@@ -810,14 +810,18 @@
         },
         fra: {
             label: 'FRA',
-            headers: ['Row','Status (B)','CNTTYPE (Y)','Risk Term (AB)','Freq (AD)','Base Prem (AZ)','RCDDATE (AE)','PAIDTODATE (AF)','FRA (BF)'],
-            outIdx: 8,
+            headers: ['Row','Status','CNTTYPE','Risk Term','Freq','Base Prem','RCDDATE','PAIDTODATE','PY Check (BB)','Yrs Paid (BC)','Ann. Prem (BD)','PUF (BE)','FRA (BF)'],
+            outIdx: 12,
             rowFn: (r, gc) =>
                 '<td class="muted">'+r.row+'</td>'+
                 '<td>'+r.status+'</td><td>'+r.cnttype+'</td>'+
                 '<td class="r">'+r.risk_term+'</td><td class="r">'+r.frequency+'</td>'+
                 '<td class="r">'+(typeof r.base_premium==='number'?fmtN(r.base_premium):r.base_premium)+'</td>'+
                 '<td>'+r.rcddate+'</td><td>'+r.paidtodate+'</td>'+
+                '<td class="r">'+r.pyc+'</td>'+
+                '<td class="r">'+r.years_paid+'</td>'+
+                '<td class="r">'+(typeof r.ann_premium==='number'?fmtN(r.ann_premium):r.ann_premium)+'</td>'+
+                '<td class="r">'+r.puf+'</td>'+
                 '<td class="out '+gc+'">'+(typeof r.result==='number'?fmtN(r.result):r.result)+'</td>',
         },
     };
@@ -826,6 +830,12 @@
     const $ = id => document.getElementById(id);
     const dropzone = $('dropzone'), fileInput = $('file-input');
     const secUpload = $('upload-section'), secProc = $('processing-section'), secResult = $('results-section');
+
+    /* ═══ Auto-switch header row default per calc type ═══ */
+    const HEADER_DEFAULTS = { gla: 2, fra: 1 };
+    $('calc-type').addEventListener('change', function() {
+        $('hrow').value = HEADER_DEFAULTS[this.value] || 1;
+    });
 
     /* ═══ Helpers ═══ */
     const fmtB = b => b < 1024 ? b+' B' : b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
@@ -915,7 +925,7 @@
         activeCalc = $('calc-type').value;
         const fd = new FormData();
         fd.append('file', selFile);
-        fd.append('header_row', parseInt($('hrow').value) || 2);
+        fd.append('header_row', parseInt($('hrow').value) || 1);
         fd.append('calc_type', activeCalc);
 
         show(secProc); resetSteps();

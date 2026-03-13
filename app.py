@@ -49,6 +49,12 @@ FRA_INPUT_COLS = {
     "NEXT_PAYDATE": "AW",
     "BASE_PREMIUM": "AZ",
 }
+FRA_WORKING_COLS = [
+    ("Policy Year Check",          "BB"),
+    ("Number of years Premium is paid", "BC"),
+    ("Annualized Premium",         "BD"),
+    ("Paid up factor",             "BE"),
+]
 FRA_OUTPUT_COL = "BF"
 
 # Frequency → annualization divisor
@@ -62,6 +68,8 @@ YELLOW_FILL = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="s
 LIGHT_YELLOW_FILL = PatternFill(start_color="FFFFF0", end_color="FFFFF0", fill_type="solid")
 LIGHT_GREEN_FILL = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
 HEADER_FILL = PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid")
+WORKING_HEADER_FILL = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+WORKING_DATA_FILL = PatternFill(start_color="FFF2E6", end_color="FFF2E6", fill_type="solid")
 
 OUTPUT_HEADER_FONT = Font(name="Calibri", bold=True, size=11, color="000000")
 INPUT_HEADER_FONT = Font(name="Calibri", bold=True, size=11, color="1F4E79")
@@ -146,12 +154,15 @@ def fmt_date(d):
 # Formatting
 # ══════════════════════════════════════════════════════════════
 
-def format_entire_sheet(ws, header_row, data_start, max_row, output_col):
+def format_entire_sheet(ws, header_row, data_start, max_row, skip_cols):
+    """Format input area of the sheet, skipping columns in skip_cols set."""
+    if isinstance(skip_cols, int):
+        skip_cols = {skip_cols}
     max_col = ws.max_column
     for c in range(1, max_col + 1):
-        cell = ws.cell(row=header_row, column=c)
-        if c == output_col:
+        if c in skip_cols:
             continue
+        cell = ws.cell(row=header_row, column=c)
         if cell.value is not None:
             cell.font = INPUT_HEADER_FONT
             cell.fill = HEADER_FILL
@@ -159,13 +170,13 @@ def format_entire_sheet(ws, header_row, data_start, max_row, output_col):
             cell.border = INPUT_HEADER_BORDER
     for row_num in range(data_start, max_row + 1):
         for c in range(1, max_col + 1):
-            if c == output_col:
+            if c in skip_cols:
                 continue
             cell = ws.cell(row=row_num, column=c)
             cell.border = DATA_BORDER
             cell.alignment = Alignment(vertical="center")
     for c in range(1, max_col + 1):
-        if c == output_col:
+        if c in skip_cols:
             continue
         cl = get_column_letter(c)
         mx = 0
@@ -194,6 +205,27 @@ def format_output_column(ws, header_row, data_start, max_row, out_col, header_te
             cell.font = VALUE_FONT_HIGHLIGHT
         else:
             cell.fill = LIGHT_YELLOW_FILL
+            cell.font = VALUE_FONT
+
+
+def format_working_columns(ws, header_row, data_start, max_row, working_defs):
+    """Format FRA working output columns (BB-BE) with headers and data styling."""
+    WORKING_FONT = Font(name="Calibri", bold=True, size=11, color="7B3F00")
+    for header_text, col_letter in working_defs:
+        ci = column_index_from_string(col_letter)
+        hc = ws.cell(row=header_row, column=ci)
+        hc.value = header_text
+        hc.fill = WORKING_HEADER_FILL
+        hc.font = WORKING_FONT
+        hc.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        hc.border = OUTPUT_HEADER_BORDER
+        ws.column_dimensions[col_letter].width = 22
+        for r in range(data_start, max_row + 1):
+            cell = ws.cell(row=r, column=ci)
+            cell.number_format = '#,##0.00'
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+            cell.border = DATA_BORDER
+            cell.fill = WORKING_DATA_FILL
             cell.font = VALUE_FONT
 
 
@@ -295,6 +327,13 @@ def process_fra_stream(input_path, output_path, header_row, file_id, original_fi
     try:
         col = {n: column_index_from_string(l) for n, l in FRA_INPUT_COLS.items()}
         out_col = column_index_from_string(FRA_OUTPUT_COL)
+        # Working column indices: BB, BC, BD, BE
+        w_cols = {name: column_index_from_string(letter) for name, letter in FRA_WORKING_COLS}
+        bb_col = w_cols["Policy Year Check"]
+        bc_col = w_cols["Number of years Premium is paid"]
+        bd_col = w_cols["Annualized Premium"]
+        be_col = w_cols["Paid up factor"]
+        all_out_cols = {bb_col, bc_col, bd_col, be_col, out_col}
 
         yield sse("stage", {"stage": "reading"})
         wb = load_workbook(input_path)
@@ -325,6 +364,10 @@ def process_fra_stream(input_path, output_path, header_row, file_id, original_fi
                 skipped += 1
             else:
                 fra = 0.0
+                policy_year_check = 0
+                years_paid = 0
+                ap = 0.0
+                puf = 0.0
                 s = str(status).strip().upper() if status else ""
                 c = str(cnttype).strip().upper() if cnttype else ""
 
@@ -333,22 +376,21 @@ def process_fra_stream(input_path, output_path, header_row, file_id, original_fi
                     freq = int(frequency) if frequency is not None else 1
                     bp = float(base_premium) if base_premium is not None else 0
 
-                    # Step 1: Annualized Premium
+                    # Step 1: Annualized Premium (BD)
                     divisor = FREQ_DIVISOR.get(freq, 1.0)
                     ap = bp / divisor if divisor != 0 else 0
 
-                    # Step 2: Policy Year Check
+                    # Step 2: Policy Year Check (BB)
                     policy_year_check = rt - years_between(rcddate, next_paydate)
 
-                    # Step 3: Years premium paid
+                    # Step 3: Years premium paid (BC)
                     years_paid = years_between(rcddate, paidtodate)
 
-                    # Step 4: Paid up factor
-                    puf = 0.0
+                    # Step 4: Paid up factor (BE)
                     if premcesdte and rcddate and (premcesdte - rcddate).days != 0 and paidtodate:
                         puf = round((paidtodate - rcddate).days / (premcesdte - rcddate).days, 2)
 
-                    # Step 5: FRA
+                    # Step 5: FRA (BF)
                     if c == "FSP" and policy_year_check == 1:
                         if s in ("DH", "SU", "CF"):
                             fra = 0.0
@@ -362,7 +404,14 @@ def process_fra_stream(input_path, output_path, header_row, file_id, original_fi
                 except (ValueError, TypeError):
                     fra = 0.0
 
+                # Write working columns (BB-BE)
+                ws.cell(row=rn, column=bb_col).value = policy_year_check
+                ws.cell(row=rn, column=bc_col).value = years_paid
+                ws.cell(row=rn, column=bd_col).value = round(ap, 2)
+                ws.cell(row=rn, column=be_col).value = puf
+                # Write final output (BF)
                 ws.cell(row=rn, column=out_col).value = fra
+
                 processed += 1
                 total_val += fra
                 if len(preview) < 25:
@@ -374,6 +423,10 @@ def process_fra_stream(input_path, output_path, header_row, file_id, original_fi
                         "base_premium": base_premium if base_premium is not None else "-",
                         "rcddate": fmt_date(rcddate),
                         "paidtodate": fmt_date(paidtodate),
+                        "pyc": policy_year_check,
+                        "years_paid": years_paid,
+                        "ann_premium": round(ap, 2),
+                        "puf": puf,
                         "result": fra,
                     })
 
@@ -386,7 +439,11 @@ def process_fra_stream(input_path, output_path, header_row, file_id, original_fi
                     "percent": round(cur / total_rows * 100, 1) if total_rows > 0 else 100,
                 })
 
-        format_entire_sheet(ws, header_row, data_start, ws.max_row, out_col)
+        # Format: skip all output cols when formatting input area
+        format_entire_sheet(ws, header_row, data_start, ws.max_row, all_out_cols)
+        # Format working columns (BB-BE)
+        format_working_columns(ws, header_row, data_start, ws.max_row, FRA_WORKING_COLS)
+        # Format final output column (BF)
         format_output_column(ws, header_row, data_start, ws.max_row, out_col, "Protiviti Output FRA")
 
         yield sse("stage", {"stage": "saving"})
@@ -424,7 +481,7 @@ async def serve_index():
 @app.post("/api/process")
 async def api_process(
     file: UploadFile = File(...),
-    header_row: int = Form(default=2),
+    header_row: int = Form(default=1),
     calc_type: str = Form(default="gla"),
 ):
     if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls", ".csv")):
